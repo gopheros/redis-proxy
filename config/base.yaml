@@ -1,0 +1,12 @@
+
+redis:
+  address: "redis:6379"
+
+cache:
+  # expiry in seconds
+  expiry: "1m"
+  size: 100
+
+server:
+  port: "8080"
+  idleTimeout: 30
