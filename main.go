@@ -42,6 +42,17 @@ func setUpRedisWithFakeData(logger *log.Logger, client *redis.Client) {
 	}
 }
 
+func BindMaxClients(h http.Handler, n int) http.Handler {
+		sema := make(chan struct{}, n)
+
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			sema <- struct{}{}
+			defer func() { <-sema }()
+
+			h.ServeHTTP(w, r)
+		})
+}
+
 func NewCache(logger *log.Logger, viper *viper.Viper, redisClient *redis.Client) (*Cache, error) {
 	size := viper.GetInt("cache.size")
 	expiry, err := time.ParseDuration(viper.GetString("cache.expiry"))
@@ -71,7 +82,7 @@ func (c *Cache) GetKey(key string) string {
 
 		value, err = c.redisClient.Get(key).Result()
 		if err != nil {
-			c.logger.Printf( "Error retrieving key %v from backend redis \n", key, err)
+			c.logger.Printf( "Error retrieving key %v from backend redis, err: %v \n", key, err)
 			return "Key not found in backend"
 		}
 
@@ -126,7 +137,7 @@ func NewHandler(logger *log.Logger, viper *viper.Viper, cache *Cache) (http.Hand
 	logger.Print("Executing NewHandler.")
 
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger.Print("Got a request.")
 		keys, ok := r.URL.Query()["key"]
 
@@ -139,7 +150,10 @@ func NewHandler(logger *log.Logger, viper *viper.Viper, cache *Cache) (http.Hand
 		value := cache.GetKey(key)
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(value))
-	}), nil
+	})
+	maxClients := viper.GetInt("server.maxClients")
+	return BindMaxClients(handler, maxClients), nil
+
 }
 
 func NewMux(lc fx.Lifecycle, logger *log.Logger, viper *viper.Viper) *http.ServeMux {
@@ -185,7 +199,7 @@ func main() {
 
 	fmt.Println( "reading config")
 	viper := GetConfig()
-	fmt.Println("Server config %v", viper.Get("server"))
+	fmt.Printf("Server config %v \n", viper.Get("server"))
 	app := fx.New(
 		// Provide all the constructors we need, which teaches Fx how we'd like to
 		// construct the *log.Logger, http.Handler, and *http.ServeMux types.
