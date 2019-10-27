@@ -24,7 +24,7 @@
 
 
 ## Architecture
-    please see the architecture.png
+  ![arhictecture](architecture.png)
 
 ## LRU cache
 - I have implemented a ttl based lru cache forking the popular lru cache
