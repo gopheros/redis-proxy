@@ -1,4 +1,10 @@
 
+
+all: lint test build run
+
+lint:
+	golint
+
 test:
 	go test
 
