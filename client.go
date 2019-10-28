@@ -71,6 +71,7 @@ func NewRedisClient(logger *log.Logger, viper *viper.Viper) *redis.Client {
 		Password: "", // no password set
 		DB:       0,  // use default DB
 	})
+	go setUpRedisWithFakeData(logger, client)
 	return client
 }
 
